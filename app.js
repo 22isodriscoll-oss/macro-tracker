@@ -7,18 +7,112 @@ const MEALS = [
   { id: 'dinner',    name: 'Dinner',    time: '7:00 PM',  defaultGoals: { cal: 650, carb: 70, prot: 50, fat: 22 } },
 ];
 
-// State
-let state = {
-  goals: { cal: 2100, carb: 215, prot: 175, fat: 70 },
-  meals: {}
-};
+// ─── Persistence ─────────────────────────────────────────────────────────────
 
-MEALS.forEach(m => {
-  state.meals[m.id] = {
-    goals: { ...m.defaultGoals },
-    foods: [{ name: '', per100: { cal: '', carb: '', prot: '', fat: '' }, grams: '' }]
-  };
-});
+const STORAGE_KEY = 'macrotracker_state';
+const MACROS = ['cal', 'carb', 'prot', 'fat'];
+
+function todayKey(date = new Date()) {
+  // Use the user's local calendar date, not UTC, so the daily reset happens at local midnight.
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function emptyFood() {
+  return { name: '', per100: { cal: '', carb: '', prot: '', fat: '' }, grams: '' };
+}
+
+function normalizeGoals(goals, fallback) {
+  const normalized = { ...fallback };
+  MACROS.forEach(macro => {
+    if (goals && goals[macro] !== undefined && goals[macro] !== null && goals[macro] !== '') {
+      normalized[macro] = Number(goals[macro]) || 0;
+    }
+  });
+  return normalized;
+}
+
+function normalizeFoods(foods) {
+  if (!Array.isArray(foods) || foods.length === 0) return [emptyFood()];
+
+  return foods.map(food => ({
+    name: food?.name ?? '',
+    per100: {
+      cal: food?.per100?.cal ?? '',
+      carb: food?.per100?.carb ?? '',
+      prot: food?.per100?.prot ?? '',
+      fat: food?.per100?.fat ?? '',
+    },
+    grams: food?.grams ?? ''
+  }));
+}
+
+function defaultState() {
+  const meals = {};
+  MEALS.forEach(m => {
+    meals[m.id] = {
+      goals: { ...m.defaultGoals },
+      foods: [emptyFood()]
+    };
+  });
+  return { date: todayKey(), goals: { cal: 2100, carb: 215, prot: 175, fat: 70 }, meals };
+}
+
+function normalizeState(saved) {
+  const base = defaultState();
+  if (!saved || typeof saved !== 'object') return base;
+
+  base.date = typeof saved.date === 'string' ? saved.date : todayKey();
+  base.goals = normalizeGoals(saved.goals, base.goals);
+
+  MEALS.forEach(m => {
+    const savedMeal = saved.meals?.[m.id];
+    if (!savedMeal) return;
+    base.meals[m.id].goals = normalizeGoals(savedMeal.goals, base.meals[m.id].goals);
+    base.meals[m.id].foods = normalizeFoods(savedMeal.foods);
+  });
+
+  return base;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+
+    const saved = normalizeState(JSON.parse(raw));
+
+    // New day: keep daily goals + meal goals, but start food entries fresh.
+    if (saved.date !== todayKey()) {
+      const fresh = defaultState();
+      fresh.goals = saved.goals;
+      MEALS.forEach(m => {
+        fresh.meals[m.id].goals = saved.meals[m.id].goals;
+      });
+      return fresh;
+    }
+
+    return saved;
+  } catch (error) {
+    console.warn('Could not load saved macro tracker data:', error);
+    return defaultState();
+  }
+}
+
+function saveState() {
+  try {
+    state.date = todayKey();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    console.warn('Could not save macro tracker data:', error);
+  }
+}
+
+// ─── State ───────────────────────────────────────────────────────────────────
+
+let state = loadState();
 
 // Set today's date
 document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IE', {
@@ -319,6 +413,13 @@ function updateAll() {
   setRem('rem-carb', remCarb, gcarb, 'bar-carb', 'carb');
   setRem('rem-prot', remProt, gprot, 'bar-prot', 'prot');
   setRem('rem-fat',  remFat,  gfat,  'bar-fat',  'fat');
+
+  // Persist current goals from inputs into state then save
+  state.goals.cal  = gc;
+  state.goals.carb = gcarb;
+  state.goals.prot = gprot;
+  state.goals.fat  = gfat;
+  saveState();
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -392,6 +493,7 @@ function resetAll() {
 
 renderMeals();
 updateAll();
+window.addEventListener('beforeunload', saveState);
 
 // Re-render food rows if crossing the mobile breakpoint
 let lastMobile = isMobile();
