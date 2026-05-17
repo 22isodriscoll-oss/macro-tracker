@@ -202,8 +202,11 @@ function renderMeals() {
           <div id="food-rows-${mDef.id}"></div>
         </div>
 
-        <div class="meal-totals" id="totals-${mDef.id}">
-          ${renderMealTotals(mDef.id, totals, mState.goals)}
+        <div class="meal-macros-section">
+          <div class="meal-section-label">Macros for this meal</div>
+          <div class="meal-totals" id="totals-${mDef.id}">
+            ${renderMealTotals(mDef.id, totals, mState.goals)}
+          </div>
         </div>
 
         <details class="meal-goals-details">
@@ -266,7 +269,6 @@ function renderFoodRows(mealId) {
   container.innerHTML = '';
 
   if (foods.length === 0) {
-    container.innerHTML = `<div class="empty-food-state">No foods yet. Tap <b>+ Add</b> when you eat.</div>`;
     return;
   }
 

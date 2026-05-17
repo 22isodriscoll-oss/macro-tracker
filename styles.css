@@ -624,12 +624,25 @@ input::placeholder {
   font-size: 13px;
 }
 
+/* Meal macro section */
+.meal-macros-section {
+  margin-top: 12px;
+}
+
+.meal-section-label {
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* Meal totals */
 .meal-totals {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 7px;
-  margin-top: 12px;
 }
 
 .meal-total-item {
@@ -817,6 +830,18 @@ input::placeholder {
     gap: 7px;
   }
 
+  .remaining-panel .macro-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .remaining-panel .macro-item {
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    background: #111113;
+    padding: 10px;
+  }
+
   .macro-name {
     font-size: 10px;
   }
@@ -898,6 +923,15 @@ input::placeholder {
 
   .meal-body {
     padding: 10px;
+  }
+
+  .meal-macros-section {
+    margin-top: 10px;
+  }
+
+  .meal-section-label {
+    margin-bottom: 6px;
+    font-size: 11px;
   }
 
   .food-summary-card {
