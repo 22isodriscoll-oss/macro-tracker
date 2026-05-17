@@ -19,6 +19,30 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Mobile no-zoom helpers */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+button,
+input,
+select,
+textarea,
+[onclick] {
+  touch-action: manipulation;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -603,4 +627,284 @@ body {
   .food-breakdown-grid .breakdown-empty { display: none; }
 
   .add-food-btn { width: 100%; margin-top: 4px; padding: 12px; }
+}
+
+/* ─── Phone readability + compact layout pass ─────────────────────────────── */
+:root {
+  --surface: #151515;
+  --surface2: #202020;
+  --border: #3a3a3a;
+  --muted: #a59f96;
+  --muted-strong: #c7c0b7;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.panel-label,
+.macro-name,
+.macro-unit,
+.food-input-label,
+.meal-total-label,
+.meal-total-goal,
+.site-date,
+.goal-field label {
+  color: var(--muted);
+}
+
+.food-name-input::placeholder,
+.food-macro-input::placeholder,
+.meal-goal-input::placeholder {
+  color: #8e877f;
+}
+
+@media (max-width: 640px) {
+  body {
+    padding: 14px 8px 44px;
+    max-width: 480px;
+  }
+
+  .site-header {
+    gap: 4px 8px;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+  }
+  .site-title { font-size: 23px; }
+  .site-date {
+    font-size: 9px;
+    color: var(--muted-strong);
+  }
+  .reset-btn {
+    font-size: 9px;
+    padding: 6px 9px;
+    color: var(--muted-strong);
+  }
+
+  .top-grid {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .panel {
+    padding: 10px;
+    border-radius: 5px;
+  }
+  .panel-label {
+    margin-bottom: 8px;
+    font-size: 8px;
+    color: var(--muted-strong);
+  }
+
+  .goals-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .goal-field { gap: 3px; }
+  .goal-field label {
+    font-size: 8px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .goal-field input {
+    min-height: 34px;
+    padding: 5px 4px;
+    text-align: center;
+    font-size: 16px !important;
+  }
+
+  .macro-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .macro-item { gap: 2px; min-width: 0; }
+  .macro-name {
+    font-size: 8px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .macro-val { font-size: 18px; }
+  .macro-val.over-goal { font-size: 12px; line-height: 1.05; }
+  .macro-unit { display: none; }
+  .bar-track { height: 3px; margin-top: 4px; }
+
+  .meals-section { gap: 7px; }
+  .meal-card { border-radius: 5px; }
+  .meal-header {
+    padding: 9px 10px;
+    gap: 8px;
+  }
+  .meal-dot { width: 5px; height: 5px; }
+  .meal-name { font-size: 14px; }
+  .meal-time {
+    font-size: 9px;
+    color: var(--muted-strong);
+  }
+  .meal-body {
+    padding: 8px;
+    gap: 9px;
+  }
+
+  .food-input-label {
+    margin-bottom: 5px;
+    font-size: 8px;
+    color: var(--muted-strong);
+  }
+
+  .meal-goals-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .meal-goal-item {
+    padding: 6px 5px;
+    gap: 3px;
+  }
+  .meal-goal-label {
+    font-size: 8px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meal-goal-input {
+    font-size: 16px !important;
+    text-align: center;
+    min-height: 24px;
+  }
+
+  .food-log-header { display: none !important; }
+
+  .food-name-input,
+  .food-macro-input {
+    min-height: 34px;
+    padding: 5px 6px;
+    font-size: 16px !important;
+    border-color: #464646;
+  }
+
+  .food-row-grid.compact-food-card {
+    grid-template-columns: 1fr;
+    gap: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 5px 5px 0 0;
+    padding: 6px;
+    margin-bottom: 0;
+  }
+
+  .mobile-food-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 64px 28px;
+    gap: 5px;
+    align-items: center;
+  }
+  .food-row-grid .mobile-food-name {
+    margin-bottom: 0;
+  }
+  .mobile-grams-input {
+    text-align: center;
+  }
+  .remove-food-btn {
+    min-height: 34px;
+    width: 28px;
+    border: 1px solid #464646;
+    border-radius: 3px;
+    color: var(--muted-strong);
+    font-size: 18px;
+    padding: 0;
+  }
+
+  .mobile-per100-grid.compact-per100-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin: 6px 0 0;
+  }
+  .compact-macro-field {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+  }
+  .compact-macro-field span {
+    display: block;
+    font-size: 7.5px;
+    line-height: 1;
+    color: var(--muted-strong);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .compact-macro-field input {
+    padding-left: 3px;
+    padding-right: 3px;
+    text-align: center;
+  }
+
+  .food-breakdown-grid.compact-total-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    background: #1b1b1b;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 5px 5px;
+    margin: 0 0 6px;
+    padding: 5px 6px;
+  }
+  .compact-total-strip .breakdown-val {
+    justify-content: center;
+    align-items: baseline;
+    gap: 3px;
+    padding: 0;
+    min-width: 0;
+  }
+  .compact-total-strip .bd-label {
+    font-size: 8px;
+    color: var(--muted-strong);
+    text-transform: uppercase;
+  }
+  .compact-total-strip .bd-num {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .compact-total-strip .bd-unit {
+    font-size: 8px;
+    color: var(--muted-strong);
+  }
+
+  .add-food-btn {
+    width: 100%;
+    padding: 9px 12px;
+    margin-top: 2px;
+    color: var(--muted-strong);
+    border-color: #4a4a4a;
+  }
+
+  .meal-totals {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    padding-top: 8px;
+  }
+  .meal-total-item { gap: 1px; min-width: 0; }
+  .meal-total-label {
+    font-size: 8px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .meal-total-val { font-size: 14px; }
+  .meal-total-val span { font-size: 9px !important; }
+  .meal-total-goal {
+    font-size: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
