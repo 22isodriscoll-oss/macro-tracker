@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MACROS</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <span class="site-title">MACROS</span>
+    <span class="site-date" id="today-date"></span>
+    <button class="reset-btn" onclick="resetAll()">↺ Reset Day</button>
+  </header>
+
+  <!-- TOP: Daily Goals + Remaining -->
+  <div class="top-grid">
+
+    <!-- Daily Goals -->
+    <div class="panel">
+      <div class="panel-label">Daily Goals</div>
+      <div class="goals-row">
+        <div class="goal-field cal">
+          <label>Calories</label>
+          <input type="number" id="goal-cal" placeholder="2000" oninput="updateAll()">
+        </div>
+        <div class="goal-field carb">
+          <label>Carbs (g)</label>
+          <input type="number" id="goal-carb" placeholder="200" oninput="updateAll()">
+        </div>
+        <div class="goal-field prot">
+          <label>Protein (g)</label>
+          <input type="number" id="goal-prot" placeholder="150" oninput="updateAll()">
+        </div>
+        <div class="goal-field fat">
+          <label>Fat (g)</label>
+          <input type="number" id="goal-fat" placeholder="65" oninput="updateAll()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Remaining -->
+    <div class="panel remaining-panel">
+      <div class="panel-label">Still to Hit Today</div>
+      <div class="macro-row">
+        <div class="macro-item">
+          <span class="macro-name">Calories</span>
+          <span class="macro-val cal" id="rem-cal">—</span>
+          <span class="macro-unit">kcal</span>
+          <div class="bar-track"><div class="bar-fill cal" id="bar-cal" style="width:0%"></div></div>
+        </div>
+        <div class="macro-item">
+          <span class="macro-name">Carbs</span>
+          <span class="macro-val carb" id="rem-carb">—</span>
+          <span class="macro-unit">grams</span>
+          <div class="bar-track"><div class="bar-fill carb" id="bar-carb" style="width:0%"></div></div>
+        </div>
+        <div class="macro-item">
+          <span class="macro-name">Protein</span>
+          <span class="macro-val prot" id="rem-prot">—</span>
+          <span class="macro-unit">grams</span>
+          <div class="bar-track"><div class="bar-fill prot" id="bar-prot" style="width:0%"></div></div>
+        </div>
+        <div class="macro-item">
+          <span class="macro-name">Fat</span>
+          <span class="macro-val fat" id="rem-fat">—</span>
+          <span class="macro-unit">grams</span>
+          <div class="bar-track"><div class="bar-fill fat" id="bar-fat" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MEALS -->
+  <div class="meals-section" id="meals-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
