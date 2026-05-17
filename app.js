@@ -19,52 +19,133 @@ function todayKey() {
   return `${year}-${month}-${day}`;
 }
 
+function blankFood() {
+  return { name: '', per100: { cal: '', carb: '', prot: '', fat: '' }, grams: '' };
+}
+
 function defaultState() {
   const meals = {};
   MEALS.forEach(m => {
     meals[m.id] = {
       goals: { ...m.defaultGoals },
-      foods: [{ name: '', per100: { cal: '', carb: '', prot: '', fat: '' }, grams: '' }]
+      foods: []
     };
   });
   return { date: todayKey(), goals: { cal: 2100, carb: 215, prot: 175, fat: 70 }, meals };
+}
+
+function cleanNumber(value) {
+  if (value === undefined || value === null) return '';
+  return String(value);
+}
+
+function normalizeFood(food) {
+  return {
+    name: food?.name ? String(food.name) : '',
+    grams: cleanNumber(food?.grams),
+    per100: {
+      cal: cleanNumber(food?.per100?.cal),
+      carb: cleanNumber(food?.per100?.carb),
+      prot: cleanNumber(food?.per100?.prot),
+      fat: cleanNumber(food?.per100?.fat),
+    }
+  };
+}
+
+function isBlankFood(food) {
+  if (!food) return true;
+  return !String(food.name || '').trim()
+    && !String(food.grams || '').trim()
+    && !String(food.per100?.cal || '').trim()
+    && !String(food.per100?.carb || '').trim()
+    && !String(food.per100?.prot || '').trim()
+    && !String(food.per100?.fat || '').trim();
+}
+
+function normalizeState(saved) {
+  const fresh = defaultState();
+  if (!saved || typeof saved !== 'object') return fresh;
+
+  fresh.date = saved.date || todayKey();
+  fresh.goals = { ...fresh.goals, ...(saved.goals || {}) };
+
+  MEALS.forEach(m => {
+    const savedMeal = saved.meals?.[m.id] || {};
+    fresh.meals[m.id].goals = { ...fresh.meals[m.id].goals, ...(savedMeal.goals || {}) };
+    fresh.meals[m.id].foods = Array.isArray(savedMeal.foods)
+      ? savedMeal.foods.map(normalizeFood).filter(food => !isBlankFood(food))
+      : [];
+  });
+
+  return fresh;
 }
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
-    const saved = JSON.parse(raw);
-    // New day: keep goals + meal goals, wipe food entries
+
+    const saved = normalizeState(JSON.parse(raw));
+
+    // New day: keep daily goals + meal goals, wipe food entries.
     if (saved.date !== todayKey()) {
       const fresh = defaultState();
       fresh.goals = saved.goals;
       MEALS.forEach(m => {
-        if (saved.meals?.[m.id]?.goals) fresh.meals[m.id].goals = saved.meals[m.id].goals;
+        fresh.meals[m.id].goals = saved.meals[m.id].goals;
       });
       return fresh;
     }
+
     return saved;
-  } catch { return defaultState(); }
+  } catch {
+    return defaultState();
+  }
 }
 
 function saveState() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {}
 }
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
 let state = loadState();
+const editingFoods = new Set();
+
+function foodKey(mealId, idx) {
+  return `${mealId}:${idx}`;
+}
+
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatInt(value) {
+  const n = Math.round(Number(value) || 0);
+  return Number.isFinite(n) ? String(n) : '0';
+}
+
+function formatMacroSummary(goals) {
+  return `${formatInt(goals.cal)} kcal · ${formatInt(goals.carb)}C · ${formatInt(goals.prot)}P · ${formatInt(goals.fat)}F`;
+}
 
 // Set today's date
-document.getElementById('today-date').textContent = new Date().toLocaleDateString('en-IE', {
-  weekday: 'long', day: 'numeric', month: 'long'
-});
-
-
+const dateEl = document.getElementById('today-date');
+if (dateEl) {
+  dateEl.textContent = new Date().toLocaleDateString('en-IE', {
+    weekday: 'short', day: 'numeric', month: 'short'
+  });
+}
 
 // ─── Mobile zoom prevention ────────────────────────────────────────────────
-// Stops accidental double-tap zoom when using the app from a phone home screen.
+
 let lastTouchEnd = 0;
 document.addEventListener('touchend', (event) => {
   const now = Date.now();
@@ -74,7 +155,6 @@ document.addEventListener('touchend', (event) => {
   lastTouchEnd = now;
 }, { passive: false });
 
-// Extra iOS Safari/Home Screen safeguard for pinch-style gesture zoom.
 document.addEventListener('gesturestart', (event) => {
   event.preventDefault();
 });
@@ -83,7 +163,10 @@ document.addEventListener('gesturestart', (event) => {
 
 function renderMeals() {
   const container = document.getElementById('meals-container');
+  if (!container) return;
+
   container.innerHTML = '';
+
   MEALS.forEach(mDef => {
     const mState = state.meals[mDef.id];
     const card = document.createElement('div');
@@ -94,61 +177,59 @@ function renderMeals() {
 
     card.innerHTML = `
       <div class="meal-header" onclick="toggleMeal('${mDef.id}')">
-        <div class="meal-dot"></div>
-        <span class="meal-name">${mDef.name}</span>
+        <div class="meal-title-wrap">
+          <div class="meal-dot"></div>
+          <div>
+            <span class="meal-name">${escapeHTML(mDef.name)}</span>
+            <span class="meal-time">${escapeHTML(mDef.time)}</span>
+          </div>
+        </div>
         <div class="meal-summary-pills" id="pills-${mDef.id}">
-          <span class="pill cal"  id="pill-cal-${mDef.id}">cal ${totals.cal}</span>
-          <span class="pill carb" id="pill-carb-${mDef.id}">carb ${totals.carb}g</span>
-          <span class="pill prot" id="pill-prot-${mDef.id}">prot ${totals.prot}g</span>
-          <span class="pill fat"  id="pill-fat-${mDef.id}">fat ${totals.fat}g</span>
+          <span class="pill cal"  id="pill-cal-${mDef.id}">${totals.cal} kcal</span>
+          <span class="pill carb" id="pill-carb-${mDef.id}">${totals.carb}C</span>
+          <span class="pill prot" id="pill-prot-${mDef.id}">${totals.prot}P</span>
+          <span class="pill fat"  id="pill-fat-${mDef.id}">${totals.fat}F</span>
         </div>
-        <span class="meal-time">${mDef.time}</span>
-        <span class="meal-chevron">▲</span>
+        <span class="meal-chevron">⌄</span>
       </div>
+
       <div class="meal-body" id="body-${mDef.id}">
-
-        <!-- Meal goals -->
-        <div>
-          <div class="food-input-label">Meal Goals</div>
-          <div class="meal-goals-row">
-            ${['cal','carb','prot','fat'].map(m => `
-              <div class="meal-goal-item">
-                <span class="meal-goal-label ${m}">${m === 'cal' ? 'Calories' : m.charAt(0).toUpperCase() + m.slice(1)}</span>
-                <input class="meal-goal-input" type="number"
-                  placeholder="${mState.goals[m]}"
-                  value="${mState.goals[m]}"
-                  onchange="setMealGoal('${mDef.id}','${m}', this.value)">
-              </div>
-            `).join('')}
-          </div>
-        </div>
-
-        <!-- Food log -->
-        <div id="foods-${mDef.id}">
-          <div class="food-input-label">Food Log</div>
-          <div class="food-log-header" style="display:grid; grid-template-columns: 140px 80px 80px 80px 80px 80px 80px 30px; gap:6px; font-size:9px; letter-spacing:0.08em; color:var(--muted); text-transform:uppercase; padding:0 2px; margin-bottom:4px;">
-            <span>Food</span>
-            <span style="grid-column:span 4; text-align:center; border-bottom:1px solid var(--border); padding-bottom:2px;">Per 100g</span>
-            <span></span>
-            <span>Amount</span>
-            <span></span>
-          </div>
-          <div class="food-log-header" style="display:grid; grid-template-columns: 140px 80px 80px 80px 80px 80px 80px 30px; gap:6px; font-size:9px; letter-spacing:0.08em; color:var(--muted); text-transform:uppercase; padding:0 2px; margin-bottom:6px;">
-            <span></span><span>kcal</span><span>carbs</span><span>prot</span><span>fat</span><span></span><span>grams</span><span></span>
+        <div class="food-log" id="foods-${mDef.id}">
+          <div class="section-heading-row">
+            <div class="food-input-label">Foods</div>
+            <button class="add-food-btn small" onclick="addFood('${mDef.id}')">+ Add</button>
           </div>
           <div id="food-rows-${mDef.id}"></div>
-          <button class="add-food-btn" onclick="addFood('${mDef.id}')">+ Add Food</button>
         </div>
 
-        <!-- Meal totals -->
         <div class="meal-totals" id="totals-${mDef.id}">
           ${renderMealTotals(mDef.id, totals, mState.goals)}
         </div>
+
+        <details class="meal-goals-details">
+          <summary>
+            <span>Meal goals</span>
+            <strong id="meal-goals-summary-${mDef.id}">${formatMacroSummary(mState.goals)}</strong>
+          </summary>
+          <div class="meal-goals-row">
+            ${['cal','carb','prot','fat'].map(m => `
+              <label class="meal-goal-item ${m}">
+                <span class="meal-goal-label ${m}">${m === 'cal' ? 'Calories' : m.charAt(0).toUpperCase() + m.slice(1)}</span>
+                <input class="meal-goal-input" type="number" inputmode="decimal"
+                  placeholder="${escapeHTML(mState.goals[m])}"
+                  value="${escapeHTML(mState.goals[m])}"
+                  oninput="setMealGoal('${mDef.id}','${m}', this.value)">
+              </label>
+            `).join('')}
+          </div>
+        </details>
       </div>
     `;
+
     container.appendChild(card);
     renderFoodRows(mDef.id);
   });
+
   setGlobalInputs();
 }
 
@@ -157,6 +238,7 @@ function renderMeals() {
 function calcFoodMacros(food) {
   const g = parseFloat(food.grams) || 0;
   if (g <= 0) return null;
+
   return {
     cal:  Math.round((parseFloat(food.per100.cal)  || 0) * g / 100),
     carb: Math.round((parseFloat(food.per100.carb) || 0) * g / 100),
@@ -165,109 +247,162 @@ function calcFoodMacros(food) {
   };
 }
 
-// ─── Render food rows with breakdown ────────────────────────────────────────
+function displayFoodName(food, idx) {
+  const name = String(food.name || '').trim();
+  return name || `Food ${idx + 1}`;
+}
 
 function isMobile() {
-  return window.innerWidth <= 640;
+  return window.innerWidth <= 720;
 }
+
+// ─── Food rows ──────────────────────────────────────────────────────────────
 
 function renderFoodRows(mealId) {
   const container = document.getElementById(`food-rows-${mealId}`);
   if (!container) return;
+
+  const foods = state.meals[mealId].foods || [];
   container.innerHTML = '';
 
-  state.meals[mealId].foods.forEach((food, idx) => {
-    const macros  = calcFoodMacros(food);
-    const hasData = macros !== null;
-    const wrap    = document.createElement('div');
+  if (foods.length === 0) {
+    container.innerHTML = `<div class="empty-food-state">No foods yet. Tap <b>+ Add</b> when you eat.</div>`;
+    return;
+  }
 
-    if (isMobile()) {
-      // ── Mobile: compact phone-first card layout ─────────────────────────
-      wrap.innerHTML = `
-        <div class="food-row-grid compact-food-card">
-          <div class="mobile-food-top">
-            <input class="food-name-input mobile-food-name" type="text" placeholder="Food" value="${food.name}"
-              oninput="updateFoodField('${mealId}',${idx},'name',this.value)">
-            <input class="food-macro-input mobile-grams-input" type="number" inputmode="decimal" placeholder="g" value="${food.grams}"
-              aria-label="grams eaten"
-              oninput="updateFoodField('${mealId}',${idx},'grams',this.value)">
-            <button class="remove-food-btn" aria-label="Remove food" onclick="removeFood('${mealId}',${idx})">×</button>
-          </div>
+  foods.forEach((food, idx) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'food-item-wrap';
 
-          <div class="mobile-per100-grid compact-per100-grid" aria-label="Macros per 100 grams">
-            <label class="compact-macro-field cal">
-              <span>kcal/100g</span>
-              <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${food.per100.cal}"
-                oninput="updateFoodField('${mealId}',${idx},'per100.cal',this.value)">
-            </label>
-            <label class="compact-macro-field carb">
-              <span>carb/100g</span>
-              <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${food.per100.carb}"
-                oninput="updateFoodField('${mealId}',${idx},'per100.carb',this.value)">
-            </label>
-            <label class="compact-macro-field prot">
-              <span>prot/100g</span>
-              <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${food.per100.prot}"
-                oninput="updateFoodField('${mealId}',${idx},'per100.prot',this.value)">
-            </label>
-            <label class="compact-macro-field fat">
-              <span>fat/100g</span>
-              <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${food.per100.fat}"
-                oninput="updateFoodField('${mealId}',${idx},'per100.fat',this.value)">
-            </label>
-          </div>
-        </div>
-        <div class="food-breakdown-grid compact-total-strip">
-          <div class="breakdown-val cal  ${!hasData ? 'empty' : ''}"><span class="bd-label">kcal</span><span class="bd-num">${hasData ? macros.cal  : '—'}</span></div>
-          <div class="breakdown-val carb ${!hasData ? 'empty' : ''}"><span class="bd-label">carb</span><span class="bd-num">${hasData ? macros.carb : '—'}</span><span class="bd-unit">${hasData ? 'g' : ''}</span></div>
-          <div class="breakdown-val prot ${!hasData ? 'empty' : ''}"><span class="bd-label">prot</span><span class="bd-num">${hasData ? macros.prot : '—'}</span><span class="bd-unit">${hasData ? 'g' : ''}</span></div>
-          <div class="breakdown-val fat  ${!hasData ? 'empty' : ''}"><span class="bd-label">fat</span><span class="bd-num">${hasData ? macros.fat  : '—'}</span><span class="bd-unit">${hasData ? 'g' : ''}</span></div>
-        </div>
-      `;
+    const shouldEdit = editingFoods.has(foodKey(mealId, idx)) || isBlankFood(food);
+
+    if (shouldEdit || !isMobile()) {
+      wrap.innerHTML = renderFoodEditor(mealId, idx, food);
     } else {
-      // ── Desktop: horizontal grid layout ─────────────────────────────────
-      const row = document.createElement('div');
-      row.style.cssText = 'display:grid; grid-template-columns: 140px 80px 80px 80px 80px 80px 80px 30px; gap:6px; margin-bottom:4px; align-items:center;';
-      row.innerHTML = `
-        <input class="food-name-input" type="text" placeholder="Food name" value="${food.name}"
-          oninput="updateFoodField('${mealId}',${idx},'name',this.value)">
-        <input class="food-macro-input" type="number" placeholder="0" value="${food.per100.cal}"
-          oninput="updateFoodField('${mealId}',${idx},'per100.cal',this.value)">
-        <input class="food-macro-input" type="number" placeholder="0" value="${food.per100.carb}"
-          oninput="updateFoodField('${mealId}',${idx},'per100.carb',this.value)">
-        <input class="food-macro-input" type="number" placeholder="0" value="${food.per100.prot}"
-          oninput="updateFoodField('${mealId}',${idx},'per100.prot',this.value)">
-        <input class="food-macro-input" type="number" placeholder="0" value="${food.per100.fat}"
-          oninput="updateFoodField('${mealId}',${idx},'per100.fat',this.value)">
-        <span style="font-size:9px;color:var(--muted);text-align:center;">×</span>
-        <input class="food-macro-input" type="number" placeholder="0g" value="${food.grams}"
-          oninput="updateFoodField('${mealId}',${idx},'grams',this.value)">
-        <button class="remove-food-btn" onclick="removeFood('${mealId}',${idx})">×</button>
-      `;
-      wrap.appendChild(row);
-
-      const brow = document.createElement('div');
-      brow.className = 'food-breakdown';
-      const fmt = (val, cls, unit) => `
-        <div class="breakdown-val ${cls} ${!hasData ? 'empty' : ''}">
-          <span class="bd-num">${hasData ? val : '—'}</span>
-          <span class="bd-unit">${hasData ? unit : ''}</span>
-        </div>`;
-      brow.innerHTML = `
-        <div class="breakdown-spacer" style="font-size:9px;color:var(--muted);display:flex;align-items:center;padding-left:2px;">
-          ${hasData ? '↳ this food' : '<span style="color:#3a3a3a">↳ fill in grams</span>'}
-        </div>
-        ${fmt(macros?.cal,  'cal',  'kcal')}
-        ${fmt(macros?.carb, 'carb', 'g')}
-        ${fmt(macros?.prot, 'prot', 'g')}
-        ${fmt(macros?.fat,  'fat',  'g')}
-        <div></div><div></div><div></div>
-      `;
-      wrap.appendChild(brow);
+      wrap.innerHTML = renderFoodSummary(mealId, idx, food);
     }
 
     container.appendChild(wrap);
+    updateFoodPreview(mealId, idx);
   });
+}
+
+function renderFoodSummary(mealId, idx, food) {
+  const macros = calcFoodMacros(food) || { cal: 0, carb: 0, prot: 0, fat: 0 };
+  const grams = parseFloat(food.grams) || 0;
+  const name = displayFoodName(food, idx);
+
+  return `
+    <div class="food-summary-card" role="button" tabindex="0" onclick="startEditFood('${mealId}', ${idx})">
+      <div class="food-summary-main">
+        <div class="food-summary-title">${escapeHTML(name)}</div>
+        <div class="food-summary-sub">${formatInt(grams)}g eaten</div>
+      </div>
+
+      <div class="food-summary-cal">
+        <strong>${macros.cal}</strong>
+        <span>kcal</span>
+      </div>
+
+      <button class="summary-delete-btn" aria-label="Delete ${escapeHTML(name)}" onclick="event.stopPropagation(); removeFood('${mealId}', ${idx})">×</button>
+
+      <div class="food-summary-macros">
+        <span class="summary-chip carb">${macros.carb}C</span>
+        <span class="summary-chip prot">${macros.prot}P</span>
+        <span class="summary-chip fat">${macros.fat}F</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderFoodEditor(mealId, idx, food) {
+  return `
+    <div class="food-edit-card">
+      <div class="food-edit-top">
+        <input class="food-name-input" id="food-name-${mealId}-${idx}" type="text" placeholder="Food name" value="${escapeHTML(food.name)}"
+          oninput="updateFoodField('${mealId}', ${idx}, 'name', this.value)">
+
+        <label class="grams-field">
+          <span>grams</span>
+          <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${escapeHTML(food.grams)}"
+            oninput="updateFoodField('${mealId}', ${idx}, 'grams', this.value)">
+        </label>
+      </div>
+
+      <div class="per100-label">Per 100g</div>
+      <div class="per100-grid">
+        <label class="macro-edit-field cal">
+          <span>kcal</span>
+          <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${escapeHTML(food.per100.cal)}"
+            oninput="updateFoodField('${mealId}', ${idx}, 'per100.cal', this.value)">
+        </label>
+        <label class="macro-edit-field carb">
+          <span>carbs</span>
+          <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${escapeHTML(food.per100.carb)}"
+            oninput="updateFoodField('${mealId}', ${idx}, 'per100.carb', this.value)">
+        </label>
+        <label class="macro-edit-field prot">
+          <span>protein</span>
+          <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${escapeHTML(food.per100.prot)}"
+            oninput="updateFoodField('${mealId}', ${idx}, 'per100.prot', this.value)">
+        </label>
+        <label class="macro-edit-field fat">
+          <span>fat</span>
+          <input class="food-macro-input" type="number" inputmode="decimal" placeholder="0" value="${escapeHTML(food.per100.fat)}"
+            oninput="updateFoodField('${mealId}', ${idx}, 'per100.fat', this.value)">
+        </label>
+      </div>
+
+      <div class="editor-total-strip">
+        <div class="editor-total cal"><span>kcal</span><strong id="preview-cal-${mealId}-${idx}">—</strong></div>
+        <div class="editor-total carb"><span>carbs</span><strong id="preview-carb-${mealId}-${idx}">—</strong></div>
+        <div class="editor-total prot"><span>protein</span><strong id="preview-prot-${mealId}-${idx}">—</strong></div>
+        <div class="editor-total fat"><span>fat</span><strong id="preview-fat-${mealId}-${idx}">—</strong></div>
+      </div>
+
+      <div class="food-edit-actions">
+        <button class="delete-food-btn" onclick="removeFood('${mealId}', ${idx})">Delete</button>
+        <button class="done-food-btn" onclick="finishEditFood('${mealId}', ${idx})">Done</button>
+      </div>
+    </div>
+  `;
+}
+
+function updateFoodPreview(mealId, idx) {
+  const food = state.meals[mealId]?.foods?.[idx];
+  if (!food) return;
+
+  const macros = calcFoodMacros(food);
+  const values = macros || { cal: '—', carb: '—', prot: '—', fat: '—' };
+
+  ['cal', 'carb', 'prot', 'fat'].forEach(m => {
+    const el = document.getElementById(`preview-${m}-${mealId}-${idx}`);
+    if (el) el.textContent = values[m];
+  });
+}
+
+function startEditFood(mealId, idx) {
+  editingFoods.add(foodKey(mealId, idx));
+  renderFoodRows(mealId);
+
+  requestAnimationFrame(() => {
+    const input = document.getElementById(`food-name-${mealId}-${idx}`);
+    if (input) input.focus({ preventScroll: true });
+  });
+}
+
+function finishEditFood(mealId, idx) {
+  const food = state.meals[mealId]?.foods?.[idx];
+  if (!food) return;
+
+  if (isBlankFood(food)) {
+    removeFood(mealId, idx);
+    return;
+  }
+
+  editingFoods.delete(foodKey(mealId, idx));
+  renderFoodRows(mealId);
+  updateAll();
 }
 
 // ─── Meal totals HTML ────────────────────────────────────────────────────────
@@ -275,15 +410,16 @@ function renderFoodRows(mealId) {
 function renderMealTotals(mealId, totals, goals) {
   return ['cal','carb','prot','fat'].map(m => {
     const t = totals[m];
-    const g = goals[m];
-    const label = m === 'cal' ? 'Calories' : m.charAt(0).toUpperCase() + m.slice(1);
+    const g = parseFloat(goals[m]) || 0;
+    const label = m === 'cal' ? 'Calories' : m === 'prot' ? 'Protein' : m.charAt(0).toUpperCase() + m.slice(1);
     const unit  = m === 'cal' ? 'kcal' : 'g';
-    const over  = t > g;
+    const over  = g > 0 && t > g;
+
     return `
-      <div class="meal-total-item">
+      <div class="meal-total-item ${m}">
         <span class="meal-total-label">${label}</span>
-        <span class="meal-total-val ${m} ${over ? 'over' : ''}">${t}<span style="font-size:12px;font-weight:400"> ${unit}</span></span>
-        <span class="meal-total-goal">goal: ${g}${unit}</span>
+        <span class="meal-total-val ${m} ${over ? 'over' : ''}">${t}<small>${unit}</small></span>
+        <span class="meal-total-goal">goal ${formatInt(g)}${unit}</span>
       </div>
     `;
   }).join('');
@@ -292,8 +428,9 @@ function renderMealTotals(mealId, totals, goals) {
 // ─── Meal macro totals calculation ──────────────────────────────────────────
 
 function calcMealTotals(mealId) {
-  const foods = state.meals[mealId].foods;
+  const foods = state.meals[mealId].foods || [];
   let cal = 0, carb = 0, prot = 0, fat = 0;
+
   foods.forEach(f => {
     const g = parseFloat(f.grams) || 0;
     if (g > 0) {
@@ -303,6 +440,7 @@ function calcMealTotals(mealId) {
       fat  += (parseFloat(f.per100.fat)  || 0) * g / 100;
     }
   });
+
   return {
     cal:  Math.round(cal),
     carb: Math.round(carb),
@@ -328,18 +466,23 @@ function updateAll() {
     totProt += t.prot;
     totFat  += t.fat;
 
-    // Summary pills
-    document.getElementById(`pill-cal-${m.id}`).textContent  = `cal ${t.cal}`;
-    document.getElementById(`pill-carb-${m.id}`).textContent = `carb ${t.carb}g`;
-    document.getElementById(`pill-prot-${m.id}`).textContent = `prot ${t.prot}g`;
-    document.getElementById(`pill-fat-${m.id}`).textContent  = `fat ${t.fat}g`;
+    const pillCal  = document.getElementById(`pill-cal-${m.id}`);
+    const pillCarb = document.getElementById(`pill-carb-${m.id}`);
+    const pillProt = document.getElementById(`pill-prot-${m.id}`);
+    const pillFat  = document.getElementById(`pill-fat-${m.id}`);
 
-    // Meal totals panel
+    if (pillCal)  pillCal.textContent  = `${t.cal} kcal`;
+    if (pillCarb) pillCarb.textContent = `${t.carb}C`;
+    if (pillProt) pillProt.textContent = `${t.prot}P`;
+    if (pillFat)  pillFat.textContent  = `${t.fat}F`;
+
     const totalsEl = document.getElementById(`totals-${m.id}`);
     if (totalsEl) totalsEl.innerHTML = renderMealTotals(m.id, t, state.meals[m.id].goals);
+
+    const mealGoalSummary = document.getElementById(`meal-goals-summary-${m.id}`);
+    if (mealGoalSummary) mealGoalSummary.textContent = formatMacroSummary(state.meals[m.id].goals);
   });
 
-  // Remaining macros
   const remCal  = gc    - totCal;
   const remCarb = gcarb - totCarb;
   const remProt = gprot - totProt;
@@ -348,19 +491,21 @@ function updateAll() {
   const setRem = (id, val, goal, barId, cls) => {
     const el  = document.getElementById(id);
     const bar = document.getElementById(barId);
-    if (!el) return;
+    if (!el || !bar) return;
+
     if (goal === 0) {
       el.textContent = '—';
       el.className = `macro-val ${cls}`;
       bar.style.width = '0%';
       return;
     }
+
     if (val < 0) {
-      el.textContent = `+${Math.abs(val)} over`;
+      el.textContent = `+${Math.abs(Math.round(val))}`;
       el.className = `macro-val ${cls} over-goal`;
       bar.style.width = '100%';
     } else {
-      el.textContent = val;
+      el.textContent = Math.round(val);
       el.className = `macro-val ${cls}`;
       const pct = Math.min(100, Math.max(0, ((goal - val) / goal) * 100));
       bar.style.width = pct + '%';
@@ -372,45 +517,69 @@ function updateAll() {
   setRem('rem-prot', remProt, gprot, 'bar-prot', 'prot');
   setRem('rem-fat',  remFat,  gfat,  'bar-fat',  'fat');
 
-  // Persist current goals from inputs into state then save
   state.goals.cal  = gc;
   state.goals.carb = gcarb;
   state.goals.prot = gprot;
   state.goals.fat  = gfat;
+
+  const dailySummary = document.getElementById('daily-goals-summary');
+  if (dailySummary) dailySummary.textContent = formatMacroSummary(state.goals);
+
   saveState();
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function setGlobalInputs() {
-  document.getElementById('goal-cal').value  = state.goals.cal;
-  document.getElementById('goal-carb').value = state.goals.carb;
-  document.getElementById('goal-prot').value = state.goals.prot;
-  document.getElementById('goal-fat').value  = state.goals.fat;
+  const cal = document.getElementById('goal-cal');
+  const carb = document.getElementById('goal-carb');
+  const prot = document.getElementById('goal-prot');
+  const fat = document.getElementById('goal-fat');
+
+  if (cal)  cal.value  = state.goals.cal;
+  if (carb) carb.value = state.goals.carb;
+  if (prot) prot.value = state.goals.prot;
+  if (fat)  fat.value  = state.goals.fat;
 }
 
 function toggleMeal(mealId) {
-  document.getElementById(`card-${mealId}`).classList.toggle('open');
+  document.getElementById(`card-${mealId}`)?.classList.toggle('open');
 }
 
 function addFood(mealId) {
-  state.meals[mealId].foods.push({ name: '', per100: { cal: '', carb: '', prot: '', fat: '' }, grams: '' });
+  if (!Array.isArray(state.meals[mealId].foods)) state.meals[mealId].foods = [];
+
+  state.meals[mealId].foods.push(blankFood());
+  const idx = state.meals[mealId].foods.length - 1;
+  editingFoods.add(foodKey(mealId, idx));
+
   renderFoodRows(mealId);
   updateAll();
+
+  requestAnimationFrame(() => {
+    const input = document.getElementById(`food-name-${mealId}-${idx}`);
+    if (input) input.focus({ preventScroll: false });
+  });
 }
 
 function removeFood(mealId, idx) {
-  if (state.meals[mealId].foods.length === 1) {
-    state.meals[mealId].foods[0] = { name: '', per100: { cal: '', carb: '', prot: '', fat: '' }, grams: '' };
-  } else {
-    state.meals[mealId].foods.splice(idx, 1);
-  }
+  if (!Array.isArray(state.meals[mealId].foods)) return;
+
+  state.meals[mealId].foods.splice(idx, 1);
+
+  // Rebuild edit keys for this meal because indexes have shifted.
+  [...editingFoods].forEach(key => {
+    if (key.startsWith(`${mealId}:`)) editingFoods.delete(key);
+  });
+
   renderFoodRows(mealId);
   updateAll();
 }
 
 function updateFoodField(mealId, idx, field, value) {
-  const food = state.meals[mealId].foods[idx];
+  const food = state.meals[mealId]?.foods?.[idx];
+  if (!food) return;
+
   if (field === 'name') {
     food.name = value;
   } else if (field === 'grams') {
@@ -418,6 +587,8 @@ function updateFoodField(mealId, idx, field, value) {
   } else if (field.startsWith('per100.')) {
     food.per100[field.split('.')[1]] = value;
   }
+
+  updateFoodPreview(mealId, idx);
   updateAll();
 }
 
@@ -429,20 +600,25 @@ function setMealGoal(mealId, macro, value) {
 function resetAll() {
   const btn = document.querySelector('.reset-btn');
   if (!btn) return;
+
   if (!btn.classList.contains('confirming')) {
     btn.classList.add('confirming');
-    btn.textContent = 'Confirm Reset?';
+    btn.textContent = 'Confirm?';
     setTimeout(() => {
       btn.classList.remove('confirming');
-      btn.textContent = '↺ Reset Day';
+      btn.textContent = '↺ Reset';
     }, 3000);
     return;
   }
+
   btn.classList.remove('confirming');
-  btn.textContent = '↺ Reset Day';
+  btn.textContent = '↺ Reset';
+
   MEALS.forEach(m => {
-    state.meals[m.id].foods = [{ name: '', per100: { cal: '', carb: '', prot: '', fat: '' }, grams: '' }];
+    state.meals[m.id].foods = [];
   });
+
+  editingFoods.clear();
   renderMeals();
   updateAll();
 }
@@ -451,10 +627,8 @@ function resetAll() {
 
 renderMeals();
 updateAll();
+window.addEventListener('beforeunload', saveState);
 
-window.addEventListener('pagehide', saveState);
-
-// Re-render food rows if crossing the mobile breakpoint
 let lastMobile = isMobile();
 window.addEventListener('resize', () => {
   const nowMobile = isMobile();

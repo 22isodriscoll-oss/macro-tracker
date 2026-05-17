@@ -3,47 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>MACROS</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
   <header class="site-header">
-    <span class="site-title">MACROS</span>
-    <span class="site-date" id="today-date"></span>
-    <button class="reset-btn" onclick="resetAll()">↺ Reset Day</button>
+    <div>
+      <span class="site-title">MACROS</span>
+      <span class="site-date" id="today-date"></span>
+    </div>
+    <button class="reset-btn" onclick="resetAll()">↺ Reset</button>
   </header>
 
-  <!-- TOP: Daily Goals + Remaining -->
   <div class="top-grid">
 
-    <!-- Daily Goals -->
-    <div class="panel">
-      <div class="panel-label">Daily Goals</div>
-      <div class="goals-row">
-        <div class="goal-field cal">
-          <label>Calories</label>
-          <input type="number" id="goal-cal" placeholder="2000" oninput="updateAll()">
-        </div>
-        <div class="goal-field carb">
-          <label>Carbs (g)</label>
-          <input type="number" id="goal-carb" placeholder="200" oninput="updateAll()">
-        </div>
-        <div class="goal-field prot">
-          <label>Protein (g)</label>
-          <input type="number" id="goal-prot" placeholder="150" oninput="updateAll()">
-        </div>
-        <div class="goal-field fat">
-          <label>Fat (g)</label>
-          <input type="number" id="goal-fat" placeholder="65" oninput="updateAll()">
-        </div>
-      </div>
-    </div>
-
-    <!-- Remaining -->
     <div class="panel remaining-panel">
-      <div class="panel-label">Still to Hit Today</div>
+      <div class="panel-label">Still to hit today</div>
       <div class="macro-row">
         <div class="macro-item">
           <span class="macro-name">Calories</span>
@@ -72,9 +51,33 @@
       </div>
     </div>
 
+    <details class="panel goals-panel">
+      <summary>
+        <span class="panel-label">Daily goals</span>
+        <span class="daily-goals-summary" id="daily-goals-summary">—</span>
+      </summary>
+      <div class="goals-row">
+        <div class="goal-field cal">
+          <label>Calories</label>
+          <input type="number" id="goal-cal" placeholder="2000" inputmode="decimal" oninput="updateAll()">
+        </div>
+        <div class="goal-field carb">
+          <label>Carbs</label>
+          <input type="number" id="goal-carb" placeholder="200" inputmode="decimal" oninput="updateAll()">
+        </div>
+        <div class="goal-field prot">
+          <label>Protein</label>
+          <input type="number" id="goal-prot" placeholder="150" inputmode="decimal" oninput="updateAll()">
+        </div>
+        <div class="goal-field fat">
+          <label>Fat</label>
+          <input type="number" id="goal-fat" placeholder="65" inputmode="decimal" oninput="updateAll()">
+        </div>
+      </div>
+    </details>
+
   </div>
 
-  <!-- MEALS -->
   <div class="meals-section" id="meals-container"></div>
 
   <script src="app.js"></script>
